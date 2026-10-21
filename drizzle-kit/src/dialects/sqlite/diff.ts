@@ -227,16 +227,23 @@ export const ddlDiff = async (
 		return prepareStatement('create_table', { table: tableFromDDL(it.name, ddl2) });
 	});
 
+	// SQLite has no ALTER INDEX, so an index switching between unique and non-unique is dropped and created again
+	const indexesUniquenessAlters = ddl2.indexes.list({ origin: 'manual' }).filter((it) => {
+		const prev = ddl1.indexes.one({ table: it.table, name: it.name });
+		return prev?.origin === 'manual' && prev.isUnique !== it.isUnique && !setOfTablesToRecereate.has(it.table);
+	});
+
 	// create indexes for created and recreated tables too
 	const jsonCreateIndexes = [...jsonRecreateTables]
 		.map((it) => it.to.indexes)
 		.concat(indexesByTable.filter((it) => !setOfTablesToRecereate.has(it.table)).map((it) => it.inserted))
+		.concat([indexesUniquenessAlters])
 		.map((it) => it.map((index) => prepareStatement('create_index', { index })))
 		.flat();
 
 	const jsonDropIndexes = indexesByTable.map((it) =>
 		it.deleted.map((index) => prepareStatement('drop_index', { index }))
-	).flat();
+	).concat(indexesUniquenessAlters.map((index) => [prepareStatement('drop_index', { index })])).flat();
 	const jsonDropTables = deletedTables.map((it) => prepareStatement('drop_table', { tableName: it.name }));
 	const jsonRenameTables = renamedTables.map((it) =>
 		prepareStatement('rename_table', { from: it.from.name, to: it.to.name })

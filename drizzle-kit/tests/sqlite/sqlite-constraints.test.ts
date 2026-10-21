@@ -2147,6 +2147,39 @@ test('issue No4688. subsequent push with where part of partial index', async () 
 	expect(pst1).toStrictEqual(expectedSt1);
 });
 
+// https://github.com/drizzle-team/drizzle-orm/issues/6557
+test('index uniqueness change with the same name', async () => {
+	const unique = {
+		t: sqliteTable('t', { a: integer() }, (t) => [uniqueIndex('t_a_idx').on(t.a)]),
+	};
+	const plain = {
+		t: sqliteTable('t', { a: integer() }, (t) => [index('t_a_idx').on(t.a)]),
+	};
+
+	const { next: n1 } = await diff({}, unique, []);
+	await push({ db, to: unique });
+
+	const { sqlStatements: st2, next: n2 } = await diff(n1, plain, []);
+	const { sqlStatements: pst2 } = await push({ db, to: plain });
+
+	const expectedSt2 = [
+		'DROP INDEX IF EXISTS `t_a_idx`;',
+		'CREATE INDEX `t_a_idx` ON `t` (`a`);',
+	];
+	expect(st2).toStrictEqual(expectedSt2);
+	expect(pst2).toStrictEqual(expectedSt2);
+
+	const { sqlStatements: st3 } = await diff(n2, unique, []);
+	const { sqlStatements: pst3 } = await push({ db, to: unique });
+
+	const expectedSt3 = [
+		'DROP INDEX IF EXISTS `t_a_idx`;',
+		'CREATE UNIQUE INDEX `t_a_idx` ON `t` (`a`);',
+	];
+	expect(st3).toStrictEqual(expectedSt3);
+	expect(pst3).toStrictEqual(expectedSt3);
+});
+
 // https://github.com/drizzle-team/drizzle-orm/issues/6062
 test('Issut No6062', async () => {
 	const events = sqliteTable(
