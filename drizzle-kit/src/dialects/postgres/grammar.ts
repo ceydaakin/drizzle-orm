@@ -2001,9 +2001,7 @@ export const defaultNameForIndex = (table: string, columns: string[]) => {
 };
 
 export const trimDefaultValueSuffix = (value: string) => {
-	let res = value.endsWith('[]') ? value.slice(0, -2) : value;
-	res = res.replace(/(::["\w.\s-]+(?:\([^)]*\))?(?:\swith(?:out)?\stime\szone)?(?:\[\])?)+$/gi, '');
-	return res;
+	return value.replace(/(::["\w.\s-]+(?:\([^)]*\))?(?:\swith(?:out)?\stime\szone)?(?:\[\])*)+$/gi, '');
 };
 
 export const defaultForColumn = (

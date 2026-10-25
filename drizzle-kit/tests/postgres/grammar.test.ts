@@ -54,6 +54,10 @@ test.each([
 	],
 	[`'{"1 day 01:00:00","1 day 02:00:00"}'::interval[]`, `'{"1 day 01:00:00","1 day 02:00:00"}'`],
 	[`(predict -> 'predictions'::text)`, `(predict -> 'predictions'::text)`],
+	// https://github.com/drizzle-team/drizzle-orm/issues/6590
+	[`ARRAY[]`, `ARRAY[]`],
+	[`ARRAY[]::character varying[]`, `ARRAY[]`],
+	[`'{}'::text[][]`, `'{}'`],
 ])('trim default suffix %#: %s', (it, expected) => {
 	expect(trimDefaultValueSuffix(it)).toBe(expected);
 });
