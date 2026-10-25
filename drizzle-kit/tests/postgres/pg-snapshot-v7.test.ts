@@ -12,6 +12,8 @@ import * as s03 from './snapshots/schema03';
 import * as s03new from './snapshots/schema03new';
 import * as s06 from './snapshots/schema06';
 import * as s06new from './snapshots/schema06new';
+import * as s07 from './snapshots/schema07';
+import * as s07new from './snapshots/schema07new';
 
 // @vitest-environment-options {"max-concurrency":1}
 let _: TestDatabase;
@@ -138,4 +140,15 @@ test('s06. the first diff after the upgrade keeps a column of a built-in type th
 		'ALTER TABLE "jobs" ALTER COLUMN "period" SET DATA TYPE "folder"."interval" USING "period"::"folder"."interval";',
 	]);
 	expect((await push({ db, to: withoutValue() })).sqlStatements).toStrictEqual([]);
+});
+
+// https://github.com/drizzle-team/drizzle-orm/issues/6589
+// The old format stores index predicates and checks with table-qualified columns, a custom type as written in
+// `dataType()` and index options joined with ','. The upgrade must store them the way the current kit builds them.
+test('s07. the first diff after the upgrade keeps partial indexes, checks and custom types', async () => {
+	const { snapshot } = upToV8(await serializePg(s07, 'camelCase'));
+
+	const { sqlStatements: st } = await diff(fromEntities(snapshot.ddl), s07new, []);
+
+	expect(st).toStrictEqual([]);
 });

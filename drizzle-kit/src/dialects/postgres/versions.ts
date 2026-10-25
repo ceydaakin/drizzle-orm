@@ -25,6 +25,26 @@ import { getOrNull } from '../../dialects/utils';
 export const isSnapshotV8 = (it: Record<string, any>): it is PostgresSnapshotV8 =>
 	Array.isArray(it.ddl) && Array.isArray(it.prevIds);
 
+// The old format stores index predicates and checks with columns qualified by their table (`"table"."column"`,
+// or `"schema"."table"."column"`), while the current kit builds both with bare column names. Strips these
+// qualifiers outside of string literals, so the first diff after the upgrade does not recreate the entities.
+const unqualifyColumns = (value: string, schema: string, table: string): string => {
+	const prefixes = [`"${schema}"."${table}".`, `"${table}".`];
+	let result = '';
+	let inString = false;
+	for (let i = 0; i < value.length;) {
+		const prefix = inString ? undefined : prefixes.find((it) => value.startsWith(it, i));
+		if (prefix) {
+			i += prefix.length;
+			continue;
+		}
+		if (value[i] === "'") inString = !inString;
+		result += value[i];
+		i++;
+	}
+	return result;
+};
+
 export const upToV8 = (
 	it: Record<string, any>,
 ): { snapshot: PostgresSnapshotV8; hints: string[] } => {
@@ -82,9 +102,8 @@ export const upToV8 = (
 
 			const [baseType, dimensions] = extractBaseTypeAndDimensions(column.type);
 
-			let fixedType = baseType.startsWith('numeric(')
-				? baseType.replace(', ', ',')
-				: baseType;
+			// numeric(6, 2) -> numeric(6,2), the same as the kit does for a column of the schema
+			let fixedType = baseType.replace(', ', ',');
 
 			ddl.columns.push({
 				schema,
@@ -158,7 +177,7 @@ export const upToV8 = (
 				schema,
 				table: table.name,
 				name: check.name,
-				value: check.value,
+				value: unqualifyColumns(check.value, schema, table.name),
 			});
 		}
 
@@ -203,11 +222,11 @@ export const upToV8 = (
 				isUnique: idx.isUnique,
 				method: idx.method,
 				concurrently: idx.concurrently,
-				where: idx.where ?? null,
+				where: idx.where ? unqualifyColumns(idx.where, schema, table.name) : null,
 				with: idx.with && Object.keys(idx.with).length > 0
 					? Object.entries(idx.with)
 						.map((it) => `${it[0]}=${it[1]}`)
-						.join(',')
+						.join(', ')
 					: '',
 				nameExplicit,
 			});
