@@ -21,6 +21,7 @@
 		"paths": {
 			"@/*": ["./tests/fixtures/tsconfig-paths/src/*"],
 			"@profile": ["./tests/fixtures/tsconfig-paths/src/profile/schema.ts"],
+			"constants/*": ["./tests/fixtures/tsconfig-paths-catch-all/src/constants/*"],
 			"*": ["./*"]
 		},
 		"outDir": "dist",

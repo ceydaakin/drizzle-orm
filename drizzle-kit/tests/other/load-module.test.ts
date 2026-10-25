@@ -9,3 +9,11 @@ test('loadModule resolves tsconfig paths', async () => {
 	expect(mod.profile).toBeDefined();
 	expect(mod.user).toBeDefined();
 });
+
+// https://github.com/drizzle-team/drizzle-orm/issues/6593
+test('loadModule resolves catch-all "*" tsconfig paths', async () => {
+	const modulePath = resolve('tests/fixtures/tsconfig-paths-catch-all/src/db/schema.ts');
+	const mod = await loadModule<{ users?: unknown }>(modulePath);
+
+	expect(mod.users).toBeDefined();
+});
