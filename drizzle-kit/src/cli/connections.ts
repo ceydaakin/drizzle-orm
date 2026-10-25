@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 import type { Decoder } from '@drizzle-team/minipg';
+import type { PGlite as PGliteInstance } from '@electric-sql/pglite';
 import type { SQLiteCloudRowset } from '@sqlitecloud/drivers';
 import { DrizzleQueryError, is } from 'drizzle-orm';
 import type { AwsDataApiSessionOptions } from 'drizzle-orm/aws-data-api/pg';
@@ -235,7 +236,9 @@ export const preparePostgresDB = async (
 			const { drizzle } = await import('drizzle-orm/pglite');
 			const { migrate } = await import('drizzle-orm/pglite/migrator');
 
-			const pglite = 'client' in credentials ? credentials.client : new PGlite(normalisePGliteUrl(credentials.url));
+			const pglite = 'client' in credentials
+				? credentials.client as PGliteInstance
+				: new PGlite(normalisePGliteUrl(credentials.url));
 			await pglite.waitReady;
 			const drzl = drizzle({ client: pglite });
 			const migrateFn = async (config: MigrationConfig) => {
