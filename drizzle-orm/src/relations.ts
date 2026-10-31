@@ -413,12 +413,37 @@ export interface RelationConfig<
 	references: ColumnsWithTable<TTableName, TForeignTableName, TColumns>;
 }
 
+// schema object -> configHelpers -> extracted config. Drivers call `extractTablesRelationalConfig` on every
+// `drizzle(client, { schema })`, and clients are often created per request (e.g. D1 on Cloudflare Workers),
+// so the schema walk is cached per schema object instead of being repeated for every client.
+const relationalConfigCache = new WeakMap<
+	Record<string, unknown>,
+	Map<(table: Table) => any, { tables: TablesRelationalConfig; tableNamesMap: Record<string, string> }>
+>();
+
 export function extractTablesRelationalConfig<
 	TTables extends TablesRelationalConfig,
 >(
 	schema: Record<string, unknown>,
 	configHelpers: (table: Table) => any,
 ): { tables: TTables; tableNamesMap: Record<string, string> } {
+	let cacheByHelpers = relationalConfigCache.get(schema);
+	if (!cacheByHelpers) {
+		cacheByHelpers = new Map();
+		relationalConfigCache.set(schema, cacheByHelpers);
+	}
+	let config = cacheByHelpers.get(configHelpers);
+	if (!config) {
+		config = buildTablesRelationalConfig(schema, configHelpers);
+		cacheByHelpers.set(configHelpers, config);
+	}
+	return config as { tables: TTables; tableNamesMap: Record<string, string> };
+}
+
+function buildTablesRelationalConfig(
+	schema: Record<string, unknown>,
+	configHelpers: (table: Table) => any,
+): { tables: TablesRelationalConfig; tableNamesMap: Record<string, string> } {
 	if (
 		Object.keys(schema).length === 1
 		&& 'default' in schema
@@ -496,7 +521,7 @@ export function extractTablesRelationalConfig<
 		}
 	}
 
-	return { tables: tablesConfig as TTables, tableNamesMap };
+	return { tables: tablesConfig, tableNamesMap };
 }
 
 export function relations<
